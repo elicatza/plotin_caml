@@ -85,47 +85,58 @@ module Plot = struct
 
   let translate_y plot y = plot.y_bottom -. (y *. plot.mul_factor_y)
 
-  let draw_x_axis_tics plot step =
+  let draw_x_axis_tics plot step thick color =
     let xs = Interval.range plot.interval_x step in
     List.iter
       (fun x ->
         let trans_x = translate_x plot x in
         let start = {x= trans_x; y= plot.y_bottom} in
         let stop = {x= trans_x; y= plot.y_bottom +. 7.} in
-        draw_line start stop 2. fg ;
+        draw_line start stop thick color ;
         draw_text (string_of_float x) (int_of_float trans_x)
           (int_of_float (plot.y_bottom +. 20.))
           4 fg )
       xs
 
-  let draw_y_axis_tics plot step =
+  let draw_y_axis_tics plot step thick color =
     let ys = Interval.range plot.interval_y step in
     List.iter
       (fun y ->
         let trans_y = translate_y plot y in
         let start = {x= plot.x_left; y= trans_y} in
         let stop = {x= plot.x_left -. 7.; y= trans_y} in
-        draw_line start stop 2. fg ;
+        draw_line start stop thick color ;
         draw_text (string_of_float y)
           (int_of_float (plot.x_left -. 20.))
           (int_of_float trans_y) 4 fg )
       ys
 
-  let draw_x_axis plot step =
+  let draw_x_axis plot step thick color =
     let start = {x= plot.x_left; y= plot.y_bottom} in
     let stop = {x= plot.x_right; y= plot.y_bottom} in
-    draw_x_axis_tics plot step ; draw_line start stop 2. fg
+    draw_x_axis_tics plot step thick color ; draw_line start stop thick color
 
-  let draw_y_axis plot step =
+  let draw_y_axis plot step thick color =
     let start = {x= plot.x_left; y= plot.y_bottom} in
     let stop = {x= plot.x_left; y= plot.y_top} in
-    draw_y_axis_tics plot step ; draw_line start stop 2. fg
+    draw_y_axis_tics plot step thick color ; draw_line start stop thick color
 
-  let plot_points plot vals =
+  let plot_points plot vals radius color =
     List.iter
       (fun (x, y) ->
-        draw_circle {x= translate_x plot x; y= translate_y plot y} 3. red )
+        draw_circle {x= translate_x plot x; y= translate_y plot y} radius color )
       vals
+
+  let plot_points_line plot vals thick color =
+    let rec aux tail =
+      match tail with
+      | (x1, y1) :: (x2, y2) :: tl ->
+          let start = {x = translate_x plot x1; y = translate_y plot y1} in
+          let stop = {x = translate_x plot x2; y = translate_y plot y2} in
+          draw_line start stop thick color;
+          aux ((x2, y2) :: tl)
+      | _ -> ()
+    in aux vals
 end
 
 let square x = x *. x
@@ -141,16 +152,17 @@ let () =
   let xs = List.init 10 (fun x -> float_of_int x /. 2.) in
   let ys = List.map square xs in
   let vals = List.combine xs ys in
-  init_window width height "Hello caml" ;
+  init_window width height "Plotting..." ;
   set_target_fps 10 ;
   let rec loop frame =
     match window_should_close () with
     | false ->
         begin_drawing () ;
         clear_background bg ;
-        Plot.draw_x_axis plot 1. ;
-        Plot.draw_y_axis plot 5. ;
-        Plot.plot_points plot vals ;
+        Plot.draw_x_axis plot 1. 2. fg;
+        Plot.draw_y_axis plot 5. 2. fg;
+        Plot.plot_points plot vals 3. red ;
+        Plot.plot_points_line plot vals 2. fg;
         end_drawing () ;
         loop (frame + 1)
     | true ->
