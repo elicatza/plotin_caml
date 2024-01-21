@@ -116,3 +116,10 @@ CAMLprim value caml_draw_text(value text, value pos_x, value pos_y, value font_s
     DrawText(String_val(text), Int_val(pos_x), Int_val(pos_y), font_size, color_of_value(color));
     CAMLreturn(Val_unit);
 }
+
+CAMLprim value caml_set_config_flags(value flag)
+{
+    CAMLparam1(flag);
+    SetConfigFlags(Int_val(flag));
+    CAMLreturn(Val_unit);
+}

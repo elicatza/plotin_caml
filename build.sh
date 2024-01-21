@@ -7,4 +7,6 @@ LIBS="-I$(ocamlc -where) $(pkg-config --libs raylib)"
 
 clang -shared -fPIC $CFLAGS ./caml_raylib.c -o dllcaml_raylib.so $LIBS
 
-ocamlc ./raylib.ml ./main.ml -o plot -dllpath . -dllib -lcaml_raylib
+ocamlc -c ./raylib.ml
+ocamlc -c ./plot.ml 
+ocamlc raylib.cmo plot.cmo ./main.ml -o plot -dllpath . -dllib -lcaml_raylib

@@ -1,155 +1,81 @@
-open Raylib
-open Vector
+include Plot
+include Raylib
+
+module F32x3 = struct
+  type t = {x: float; y: float; z: float}
+
+  let ( +^ ) u v = {x= u.x +. v.x; y= u.y +. v.y; z= u.z +. v.z}
+
+  let ( -^ ) u v = {x= u.x -. v.x; y= u.y -. v.y; z= u.z -. v.z}
+
+  let ( *^ ) u scaler = {x= u.x *. scaler; y= u.y *. scaler; z= u.z *. scaler}
+
+  let ( /^ ) u divisor = {x= u.x /. divisor; y= u.y /. divisor; z= u.z /. divisor}
+
+  let dot u v = (u.x *. v.x) +. (u.y *. v.y) +. (u.z *. v.z)
+
+  let cross u v =
+    { x= (u.y *. v.z) -. (u.z *. v.y)
+    ; y= (u.z *. v.x) -. (u.x *. v.z)
+    ; z= (u.x *. v.y) -. (u.y *. v.x) }
+end
+open F32x3
 
 let bg = {r= 0x28; g= 0x28; b= 0x28; a= 0xff}
-
 let fg = {r= 0xeb; g= 0xdb; b= 0xb2; a= 0xff}
-
 let red = {r= 0xcc; g= 0x24; b= 0x1d; a= 0xff}
-
 let green = {r= 0x98; g= 0x97; b= 0x1a; a= 0xff}
 
-let margin = 0.15
+let q = 1.
+let m = 0.01
 
-module Interval = struct
-  type t = {min: float; max: float}
+let e_field = {x= 0.0; y= -0.004; z= 0.0}
+let b = {x= 0.0; y= 0.0; z= -0.01}
 
-  let contains interval value =
-    if interval.min <= value && value <= interval.max then true else false
+let v0 = {x= 0.24; y= 0.0; z= 0.0}
+let r0 = {x= 0.0; y= 0.0; z= 0.0}
+let dt = 0.01
 
-  let surrounds interval value =
-    if interval.min < value && value < interval.max then true else false
+let force_e () = e_field *^ q
 
-  let clamp interval value =
-    if value < interval.min then interval.min
-    else if value > interval.max then interval.max
-    else value
+let force_m v = cross (v *^ q) b
 
-  let diff interval = interval.max -. interval.min
+let accel v = (force_m v +^ force_e ()) /^ m
+(* let accel v = {x = 0.; y = -9.81; z = 0.} *)
 
-  let range interval step =
-    List.init
-      (int_of_float (diff interval /. step) + 1)
-      (fun x -> interval.min +. (step *. float_of_int x))
-end
-
-module Plot = struct
-  type t =
-    { offset: Vector.t
-    ; dim: Vector.t
-    ; interval_x: Interval.t
-    ; interval_y: Interval.t
-    ; mul_factor_x: float
-    ; mul_factor_y: float
-    ; y_top: float
-    ; y_bottom: float
-    ; x_left: float
-    ; x_right: float }
-
-  let create offset dim interval_x interval_y =
-    let margin_min = (Float.min dim.x dim.y) *. margin in
-    let y_top = offset.y +. margin_min in
-    let y_bottom = offset.y +. dim.y -. margin_min in
-    let x_left = offset.x +. margin_min in
-    let x_right = offset.x +. dim.x -. margin_min in
-    let mul_factor_x = (x_right -. x_left) /. Interval.diff interval_x in
-    let mul_factor_y = (y_bottom -. y_top) /. Interval.diff interval_y in
-    { offset
-    ; dim
-    ; interval_x
-    ; interval_y
-    ; mul_factor_x
-    ; mul_factor_y
-    ; y_top
-    ; y_bottom
-    ; x_left
-    ; x_right }
-
-  let translate_x plot x =
-    if plot.interval_x.min < 0. then
-      plot.x_left +. ((x -. plot.interval_x.min) *. plot.mul_factor_x)
-    else plot.x_left +. (x *. plot.mul_factor_x)
-
-  let translate_y plot y = plot.y_bottom -. (y *. plot.mul_factor_y)
-
-  let draw_x_axis_tics plot step thick color =
-    let xs = Interval.range plot.interval_x step in
-    List.iter
-      (fun x ->
-        let trans_x = translate_x plot x in
-        let start = {x= trans_x; y= plot.y_bottom} in
-        let stop = {x= trans_x; y= plot.y_bottom +. 7.} in
-        draw_line start stop thick color ;
-        draw_text (string_of_float x) (int_of_float trans_x)
-          (int_of_float (plot.y_bottom +. 20.))
-          4 fg )
-      xs
-
-  let draw_y_axis_tics plot step thick color =
-    let ys = Interval.range plot.interval_y step in
-    List.iter
-      (fun y ->
-        let trans_y = translate_y plot y in
-        let start = {x= plot.x_left; y= trans_y} in
-        let stop = {x= plot.x_left -. 7.; y= trans_y} in
-        draw_line start stop thick color ;
-        draw_text (string_of_float y)
-          (int_of_float (plot.x_left -. 20.))
-          (int_of_float trans_y) 4 fg )
-      ys
-
-  let draw_x_axis plot step thick color =
-    let start = {x= plot.x_left; y= plot.y_bottom} in
-    let stop = {x= plot.x_right; y= plot.y_bottom} in
-    draw_x_axis_tics plot step thick color ; draw_line start stop thick color
-
-  let draw_y_axis plot step thick color =
-    let start = {x= plot.x_left; y= plot.y_bottom} in
-    let stop = {x= plot.x_left; y= plot.y_top} in
-    draw_y_axis_tics plot step thick color ; draw_line start stop thick color
-
-  let plot_points plot vals radius color =
-    List.iter
-      (fun (x, y) ->
-        draw_circle {x= translate_x plot x; y= translate_y plot y} radius color )
-      vals
-
-  let plot_points_line plot vals thick color =
-    let rec aux tail =
-      match tail with
-      | (x1, y1) :: (x2, y2) :: tl ->
-          let start = {x = translate_x plot x1; y = translate_y plot y1} in
-          let stop = {x = translate_x plot x2; y = translate_y plot y2} in
-          draw_line start stop thick color;
-          aux ((x2, y2) :: tl)
-      | _ -> ()
-    in aux vals
-end
-
-let square x = x *. x
+let rec generate_vals v0 r0 t_max =
+  let rec aux vals time vel pos =
+    if time < t_max then
+      let a = accel vel in
+      let v = vel +^ (a *^ dt) in
+      let r = pos +^ (v *^ dt) in
+      aux ((r.x, r.y) :: vals) (time +. dt) v r
+    else vals
+  in
+  aux [] 0. v0 r0
 
 let () =
   let width = 700 in
   let aspect_ratio = 16. /. 9. in
   let height = int_of_float (float_of_int width /. aspect_ratio) in
   let plot =
-    Plot.create {x= 0.; y= 0.} {x= float_of_int width; y= float_of_int height} {min= -10.; max= 10.}
-      {min= 0.; max= 30.}
+    Plot.create {x= 0.; y= 0.}
+      {x= float_of_int width; y= float_of_int height}
+      {min= 0.; max= 5.} {min= -0.4; max= 0.}
   in
-  let xs = List.init 10 (fun x -> float_of_int x /. 2.) in
-  let ys = List.map square xs in
-  let vals = List.combine xs ys in
+  let vals = generate_vals v0 r0 14. in
+  set_config_flags (int_of_flag FLAG_MSAA_4X_HINT);
   init_window width height "Plotting..." ;
-  set_target_fps 10 ;
+  set_target_fps 1 ;
   let rec loop frame =
     match window_should_close () with
     | false ->
         begin_drawing () ;
         clear_background bg ;
-        Plot.draw_x_axis plot 1. 2. fg;
-        Plot.draw_y_axis plot 5. 2. fg;
-        Plot.plot_points plot vals 3. red ;
-        Plot.plot_points_line plot vals 2. fg;
+        Plot.draw_x_axis plot 1. 2. fg ;
+        Plot.draw_y_axis plot 0.1 2. fg ;
+        (* Plot.plot_points plot vals 3. red ; *)
+        Plot.plot_points_line plot vals 2. fg ;
         end_drawing () ;
         loop (frame + 1)
     | true ->
