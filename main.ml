@@ -39,6 +39,11 @@ module Interval = struct
     else value
 
   let diff interval = interval.max -. interval.min
+
+  let range interval step =
+    List.init
+      (int_of_float (diff interval /. step) + 1)
+      (fun x -> interval.min +. (step *. float_of_int x))
 end
 
 module Plot = struct
@@ -47,106 +52,80 @@ module Plot = struct
     ; dim: Intx2.t
     ; interval_x: Interval.t
     ; interval_y: Interval.t
+    ; mul_factor_x: float
+    ; mul_factor_y: float
     ; y_top: float
     ; y_bottom: float
     ; x_left: float
     ; x_right: float }
 
   let create (offset : Intx2.t) (dim : Intx2.t) interval_x interval_y =
-    let lowest_margin = float_of_int (min dim.x dim.y) *. margin in
-    let y_top = float_of_int offset.y +. lowest_margin in
-    let y_bottom = float_of_int offset.y +. float_of_int dim.y -. lowest_margin in
-    let x_left = float_of_int offset.x +. lowest_margin in
-    let x_right = float_of_int offset.x +. float_of_int dim.x -. lowest_margin in
-    {offset; dim; interval_x; interval_y; y_top; y_bottom; x_left; x_right}
+    let margin_min = float_of_int (min dim.x dim.y) *. margin in
+    let y_top = float_of_int offset.y +. margin_min in
+    let y_bottom = float_of_int offset.y +. float_of_int dim.y -. margin_min in
+    let x_left = float_of_int offset.x +. margin_min in
+    let x_right = float_of_int offset.x +. float_of_int dim.x -. margin_min in
+    let mul_factor_x = (x_right -. x_left) /. Interval.diff interval_x in
+    let mul_factor_y = (y_bottom -. y_top) /. Interval.diff interval_y in
+    { offset
+    ; dim
+    ; interval_x
+    ; interval_y
+    ; mul_factor_x
+    ; mul_factor_y
+    ; y_top
+    ; y_bottom
+    ; x_left
+    ; x_right }
+
+  let translate_x plot x =
+    if plot.interval_x.min < 0. then
+      plot.x_left +. ((x -. plot.interval_x.min) *. plot.mul_factor_x)
+    else plot.x_left +. (x *. plot.mul_factor_x)
+
+  let translate_y plot y = plot.y_bottom -. (y *. plot.mul_factor_y)
 
   let draw_x_axis_tics plot step =
-    let mul_factor = (plot.x_right -. plot.x_left) /. Interval.diff plot.interval_x in
-    let rec aux cur max step =
-      if cur > max then ()
-      else
-        let trans_x = (cur *. mul_factor) +. plot.x_left in
-        let _ =
-          draw_line
-            {x= trans_x; y= plot.y_bottom}
-            {x= trans_x; y= plot.y_bottom +. 7.}
-            2. fg
-        in
-        let _ =
-          draw_text (string_of_float cur) (int_of_float trans_x)
-            (int_of_float (plot.y_bottom +. 20.))
-            4 fg
-        in
-        aux (cur +. step) max step
-    in
-    aux plot.interval_x.min plot.interval_x.max step
+    let xs = Interval.range plot.interval_x step in
+    List.iter
+      (fun x ->
+        let trans_x = translate_x plot x in
+        let start = {x= trans_x; y= plot.y_bottom} in
+        let stop = {x= trans_x; y= plot.y_bottom +. 7.} in
+        draw_line start stop 2. fg ;
+        draw_text (string_of_float x) (int_of_float trans_x)
+          (int_of_float (plot.y_bottom +. 20.))
+          4 fg )
+      xs
 
   let draw_y_axis_tics plot step =
-    let mul_factor = (plot.y_bottom -. plot.y_top) /. Interval.diff plot.interval_y in
-    let rec aux cur max step =
-      if cur > max then ()
-      else
-        let trans_y = plot.y_bottom -. (cur *. mul_factor) in
-        let _ =
-          draw_line
-            {x= plot.x_left; y= trans_y}
-            {x= plot.x_left -. 7.; y= trans_y}
-            2. fg
-        in
-        let _ =
-          draw_text (string_of_float cur)
-            (int_of_float (plot.x_left -. 20.))
-            (int_of_float trans_y) 4 fg
-        in
-        aux (cur +. step) max step
-    in
-    aux plot.interval_y.min plot.interval_y.max step
+    let ys = Interval.range plot.interval_y step in
+    List.iter
+      (fun y ->
+        let trans_y = translate_y plot y in
+        let start = {x= plot.x_left; y= trans_y} in
+        let stop = {x= plot.x_left -. 7.; y= trans_y} in
+        draw_line start stop 2. fg ;
+        draw_text (string_of_float y)
+          (int_of_float (plot.x_left -. 20.))
+          (int_of_float trans_y) 4 fg )
+      ys
 
   let draw_x_axis plot step =
-    let start =
-      { x= plot.x_left
-      ; y= plot.y_bottom }
-    in
-    let stop =
-      { x= plot.x_right
-      ; y= plot.y_bottom }
-    in
-    let _ = draw_x_axis_tics plot step in
-    draw_line start stop 2. fg
+    let start = {x= plot.x_left; y= plot.y_bottom} in
+    let stop = {x= plot.x_right; y= plot.y_bottom} in
+    draw_x_axis_tics plot step ; draw_line start stop 2. fg
 
   let draw_y_axis plot step =
-    let start =
-      { x= plot.x_left
-      ; y= plot.y_bottom }
-    in
-    let stop =
-      { x= plot.x_left
-      ; y= plot.y_top }
-    in
-    let _ = draw_y_axis_tics plot step in
-    draw_line start stop 2. fg
+    let start = {x= plot.x_left; y= plot.y_bottom} in
+    let stop = {x= plot.x_left; y= plot.y_top} in
+    draw_y_axis_tics plot step ; draw_line start stop 2. fg
 
-  let plot_points plot vals inter_x inter_y =
-    let mul_factor_y =
-      float_of_int (plot.dim.y - plot.offset.y) /. Interval.diff inter_y
-    in
-    let mul_factor_x =
-      float_of_int (plot.dim.x - plot.offset.x) /. Interval.diff inter_x
-    in
-    let rec aux vals =
-      match vals with
-      | [] ->
-          ()
-      | (x, y) :: tl ->
-          let _ =
-            draw_circle
-              { x= x *. mul_factor_x +. plot.x_left
-              ; y= float_of_int plot.dim.y -. (y *. mul_factor_y) -. plot.y_top }
-              3. red
-          in
-          aux tl
-    in
-    aux vals
+  let plot_points plot vals =
+    List.iter
+      (fun (x, y) ->
+        draw_circle {x= translate_x plot x; y= translate_y plot y} 3. red )
+      vals
 end
 
 let square x = x *. x
@@ -155,13 +134,15 @@ let () =
   let width = 700 in
   let aspect_ratio = 16. /. 9. in
   let height = int_of_float (float_of_int width /. aspect_ratio) in
-  let plot = Plot.create {x= 30; y= 0} {x= width - 30; y= height} {min = 0.; max = 10.} {min = 0.; max = 30.} in
+  let plot =
+    Plot.create {x= 30; y= 0} {x= width; y= height} {min= -10.; max= 10.}
+      {min= 0.; max= 30.}
+  in
   let xs = List.init 10 (fun x -> float_of_int x /. 2.) in
   let ys = List.map square xs in
   let vals = List.combine xs ys in
-  let _ = List.iter (Printf.printf "xs: %.2f\n") xs in
-  let _ = init_window width height "Hello caml" in
-  let _ = set_target_fps 10 in
+  init_window width height "Hello caml" ;
+  set_target_fps 10 ;
   let rec loop frame =
     match window_should_close () with
     | false ->
@@ -169,7 +150,7 @@ let () =
         clear_background bg ;
         Plot.draw_x_axis plot 1. ;
         Plot.draw_y_axis plot 5. ;
-        Plot.plot_points plot vals {min= 0.; max= 10.} {min= 0.; max= 30.} ;
+        Plot.plot_points plot vals ;
         end_drawing () ;
         loop (frame + 1)
     | true ->
