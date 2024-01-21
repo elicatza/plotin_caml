@@ -11,19 +11,6 @@ let green = {r= 0x98; g= 0x97; b= 0x1a; a= 0xff}
 
 let margin = 0.15
 
-(** int32x2 *)
-module Intx2 = struct
-  type t = {x: int; y: int}
-
-  let ( +^ ) a b = {x= a.x + b.x; y= a.y + b.y}
-
-  let is_null a = if a.x = 0 && a.y = 0 then true else false
-
-  let ( -^ ) a b = {x= a.x - b.x; y= a.y - b.y}
-
-  let ( =^ ) a b = if a.x = b.x && a.y = b.y then true else false
-end
-
 module Interval = struct
   type t = {min: float; max: float}
 
@@ -48,8 +35,8 @@ end
 
 module Plot = struct
   type t =
-    { offset: Intx2.t
-    ; dim: Intx2.t
+    { offset: Vector.t
+    ; dim: Vector.t
     ; interval_x: Interval.t
     ; interval_y: Interval.t
     ; mul_factor_x: float
@@ -59,12 +46,12 @@ module Plot = struct
     ; x_left: float
     ; x_right: float }
 
-  let create (offset : Intx2.t) (dim : Intx2.t) interval_x interval_y =
-    let margin_min = float_of_int (min dim.x dim.y) *. margin in
-    let y_top = float_of_int offset.y +. margin_min in
-    let y_bottom = float_of_int offset.y +. float_of_int dim.y -. margin_min in
-    let x_left = float_of_int offset.x +. margin_min in
-    let x_right = float_of_int offset.x +. float_of_int dim.x -. margin_min in
+  let create offset dim interval_x interval_y =
+    let margin_min = (Float.min dim.x dim.y) *. margin in
+    let y_top = offset.y +. margin_min in
+    let y_bottom = offset.y +. dim.y -. margin_min in
+    let x_left = offset.x +. margin_min in
+    let x_right = offset.x +. dim.x -. margin_min in
     let mul_factor_x = (x_right -. x_left) /. Interval.diff interval_x in
     let mul_factor_y = (y_bottom -. y_top) /. Interval.diff interval_y in
     { offset
@@ -146,7 +133,7 @@ let () =
   let aspect_ratio = 16. /. 9. in
   let height = int_of_float (float_of_int width /. aspect_ratio) in
   let plot =
-    Plot.create {x= 30; y= 0} {x= width; y= height} {min= -10.; max= 10.}
+    Plot.create {x= 0.; y= 0.} {x= float_of_int width; y= float_of_int height} {min= -10.; max= 10.}
       {min= 0.; max= 30.}
   in
   let xs = List.init 10 (fun x -> float_of_int x /. 2.) in
