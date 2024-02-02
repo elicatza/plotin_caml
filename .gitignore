@@ -7,3 +7,5 @@ snake_caml.opam
 dune-project
 bin/dune
 plot
+vendor
+lib

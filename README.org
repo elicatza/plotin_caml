@@ -1,20 +1,22 @@
-* Camlsnake
-  Snake made in Ocaml. This was made using Raylib with C interoperability.
-  The purpose of this was to learn Ocaml.
+* Plotting
+  Plotting library for ocaml made using Raylib <3
 
 ** Building
    Dependencies
    - clang
    - ocamlc
    - sh
-   - Raylib
+   - raylib
 
    Run following command to build:
    #+begin_src bash
    ./build.sh
    #+end_src
 
-   Execute:
-   #+begin_src bash
-   ./snake_caml
-   #+end_src
+** Plans
+   - [X] Draw faded grid
+   - [X] Draw box
+   - [X] Make a wrapper around Raylib
+   - [ ] Custom frame control over `BeginDrawing` and `EndDrawing` (only render 1 frame)
+   - [ ] Ffmpeg save plot to image file
+

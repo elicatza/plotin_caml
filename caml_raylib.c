@@ -1,7 +1,7 @@
 #include <caml/alloc.h>
 #include <caml/memory.h>
 #include <caml/mlvalues.h>
-#include <raylib.h>
+#include "raylib.h"
 #include <sys/random.h>
 
 
@@ -122,4 +122,11 @@ CAMLprim value caml_set_config_flags(value flag)
     CAMLparam1(flag);
     SetConfigFlags(Int_val(flag));
     CAMLreturn(Val_unit);
+}
+
+CAMLprim value caml_measure_text(value text, value font_size)
+{
+    CAMLparam2(text, font_size);
+    int rv = MeasureText(String_val(text), Int_val(font_size));
+    CAMLreturn(Val_int(rv));
 }

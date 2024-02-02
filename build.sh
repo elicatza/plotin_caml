@@ -2,8 +2,9 @@
 
 set -xe
 
+export PKG_CONFIG_PATH=lib/raylib/lib/pkgconfig/
 CFLAGS="-Wall -Wextra -pedantic"
-LIBS="-I$(ocamlc -where) $(pkg-config --libs raylib)"
+LIBS="-I$(ocamlc -where) $(pkg-config --libs raylib --cflags raylib) -lm -lglfw -lpthread"
 
 clang -shared -fPIC $CFLAGS ./caml_raylib.c -o dllcaml_raylib.so $LIBS
 
